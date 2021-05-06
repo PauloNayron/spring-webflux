@@ -15,12 +15,19 @@
     <description>Demo project for Spring Boot</description>
     <properties>
         <java.version>11</java.version>
+        <r2dbc-postgresql.version>0.8.2.RELEASE</r2dbc-postgresql.version>
+        <blockhound.version>1.0.6.RELEASE</blockhound.version>
     </properties>
     <dependencies>
         <dependency>
             <groupId>io.projectreactor.tools</groupId>
             <artifactId>blockhound</artifactId>
-            <version>1.0.6.RELEASE</version>
+            <version>${blockhound.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.r2dbc</groupId>
+            <artifactId>r2dbc-postgresql</artifactId>
+            <version>${r2dbc-postgresql.version}</version>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
