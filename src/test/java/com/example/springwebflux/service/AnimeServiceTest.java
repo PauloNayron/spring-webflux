@@ -20,6 +20,7 @@ import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 import reactor.test.StepVerifier;
 
+import java.util.List;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 
@@ -164,11 +165,52 @@ public class AnimeServiceTest {
                 .verify();
     }
 
+    @Test
+    @DisplayName("Save all creates a list of anime when successful")
+    public void saveAllCreatesAListOfAnimeWhenSuccessful () {
+        // scenery
+        BDDMockito.when(animeRepositoryMock.saveAll(animeListValid()))
+                .thenReturn(Flux.just(animeValid(), animeValid2()));
+        // execution
+        // result
+        StepVerifier.create(animeService.saveAll(animeListValid()))
+                .expectSubscription()
+                .expectNext(animeValid(), animeValid2())
+                .verifyComplete();
+    }
+
+    @Test
+    @DisplayName("Save all returns Mono Error when one of the objects in the list contains null or empty name")
+    public void saveAllReturnsMonoErrorWhenContainsInvalidName () {
+        // scenery
+        BDDMockito.when(animeRepositoryMock.saveAll(ArgumentMatchers.anyIterable()))
+                .thenReturn(Flux.just(animeValid(), animeValid2().withName("")));
+        // execution
+        // result
+        StepVerifier.create(animeService.saveAll(animeListInvalid()))
+                .expectSubscription()
+                .expectNext(animeValid())
+                .expectError(ResponseStatusException.class)
+                .verify();
+    }
+
+    private List<Anime> animeListValid() {
+        return List.of(animeValid(), animeValid2());
+    }
+
+    private List<Anime> animeListInvalid() {
+        return List.of(animeValid(), animeValid2().withName(""));
+    }
+
     private Anime animeToBeSaved() {
         return Anime.builder().name("Hellsing").build();
     }
 
     private Anime animeValid() {
         return Anime.builder().id(1).name("Hellsing").build();
+    }
+
+    private Anime animeValid2() {
+        return Anime.builder().id(1).name("Overlord II").build();
     }
 }
