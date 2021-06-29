@@ -1,9 +1,7 @@
 package com.example.springwebflux.controller;
 
 import com.example.springwebflux.domain.Anime;
-import com.example.springwebflux.exception.CustomAttributes;
 import com.example.springwebflux.repository.AnimeRepository;
-import com.example.springwebflux.service.AnimeService;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
@@ -12,9 +10,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentMatchers;
 import org.mockito.BDDMockito;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.reactive.WebFluxTest;
+import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
+import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.web.reactive.server.WebTestClient;
@@ -25,12 +23,13 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
+import java.util.List;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 
 @ExtendWith(SpringExtension.class)
-@WebFluxTest
-@Import({AnimeService.class, CustomAttributes.class})
+@SpringBootTest
+@AutoConfigureWebTestClient
 class AnimeControllerTestComponent {
 
     @MockBean
@@ -43,7 +42,9 @@ class AnimeControllerTestComponent {
 
     @BeforeAll
     public static void blockHoundSetup () {
-        BlockHound.install();
+        BlockHound.install(builder -> {
+            builder.allowBlockingCallsInside("java.util.UUID", "randomUUID");
+        });
     }
 
     @Test
@@ -225,6 +226,45 @@ class AnimeControllerTestComponent {
                 .expectBody()
                     .jsonPath("$.status").isEqualTo(404)
                     .jsonPath("$.developerMessage").isEqualTo("A ResponseStatusException Happened");
+    }
+
+    @Test
+    @DisplayName("Save batch creates a list of animes when successful")
+    public void saveBatchCreatesAListOfAnimesWhenSuccessful () {
+        // scenery
+        BDDMockito.when(animeRepositoryMock.saveAll(List.of(animeToBeSaved(), animeToBeSaved())))
+                .thenReturn(Flux.just(anime, anime));
+        // execution
+        // verify
+        testClient
+                .post()
+                .uri("/anime/batch")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(BodyInserters.fromValue(List.of(animeToBeSaved(), animeToBeSaved())))
+                .exchange()
+                .expectStatus().isCreated()
+                    .expectBodyList(Anime.class)
+                    .hasSize(2)
+                    .contains(anime);
+    }
+
+    @Test
+    @DisplayName("Save batch return Mono Error when one of object in the list contains empty or null name")
+    public void saveBatchReturnMonoErrorWhenOneOfObjectInTheListIsInvalid () {
+        // scenery
+        BDDMockito.when(animeRepositoryMock.saveAll(ArgumentMatchers.anyIterable()))
+                .thenReturn(Flux.just(anime, anime.withName("")));
+        // execution
+        // verify
+        testClient
+                .post()
+                .uri("/anime/batch")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(BodyInserters.fromValue(animeToBeSaved()))
+                .exchange()
+                .expectStatus().isBadRequest()
+                .expectBody()
+                    .jsonPath("$.status").isEqualTo(400);
     }
 
     private Anime animeToBeSavedInvalid() {
